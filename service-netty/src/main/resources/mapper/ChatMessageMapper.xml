@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.zcj.servicenetty.mapper.ChatMessageMapper">
+
+    <insert id="batchInsert">
+        insert into chat_message (
+        session_id,
+        message_id,
+        type,
+        from_id,
+        to_id,
+        content,
+        status,
+        reply_to_id,
+        created_at,
+        updated_at
+        ) values
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.sessionId},
+            #{item.messageId},
+            #{item.type},
+            #{item.fromId},
+            #{item.toId},
+            #{item.content},
+            #{item.status},
+            #{item.replyToId},
+            #{item.createdAt},
+            #{item.updatedAt}
+            )
+        </foreach>
+    </insert>
+
+    <select id="selectMaxMessageIdInSession"
+            parameterType="java.lang.Long"
+    resultType="java.lang.Long">
+        select COALESCE(Max(message_id), 0)
+        from chat_message
+        where session_id = #{sessionId}
+    </select>
+    <select id="selectMemberIdsInSession" resultType="java.lang.Long">
+        <!-- 提取公共会话信息，避免重复查询 -->
+        WITH session_info AS (
+        SELECT
+        id,
+        type,
+        first_id,
+        second_id
+        FROM chat_session
+        WHERE id = #{sessionId}
+        )
+
+        -- 1. 处理单聊（type=1）：取 first_id 和 second_id
+        SELECT first_id AS member_id
+        FROM session_info
+        WHERE type = 1
+
+        UNION ALL
+
+        SELECT second_id AS member_id
+        FROM session_info
+        WHERE type = 1
+
+        UNION ALL
+
+        -- 2. 处理群聊（type=2）：关联 group_member 表
+        SELECT gm.user_id AS member_id
+        FROM session_info si
+        JOIN group_member gm ON gm.group_id = si.first_id
+        WHERE si.type = 2
+
+    </select>
+
+</mapper>

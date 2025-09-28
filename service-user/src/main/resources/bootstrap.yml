@@ -1,0 +1,20 @@
+server:
+  port: 8801
+
+spring:
+  application:
+    name: service-user
+
+  cloud:
+    nacos:
+      server-addr: 127.0.0.1:8848
+      # 配置中心设置
+      config:
+        namespace: chat
+        group: dev
+        file-extension: yaml
+
+      # 服务发现设置
+      discovery:
+        namespace: chat
+        group: dev

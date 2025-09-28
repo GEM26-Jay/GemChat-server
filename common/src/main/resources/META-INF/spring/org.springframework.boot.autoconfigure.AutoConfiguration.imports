@@ -1,0 +1,3 @@
+com.zcj.common.autoconfig.HandlerAutoConfiguration
+com.zcj.common.autoconfig.UtilsAutoConfiguration
+com.zcj.common.autoconfig.FeignClientAutoConfiguration

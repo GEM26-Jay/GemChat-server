@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.zcj.servicechat.mapper.ChatMessageMapper">
+    <insert id="batchInsert">
+        INSERT INTO chat_message (
+        session_id,
+        message_id,
+        type,
+        from_id,
+        to_id,
+        content,
+        status,
+        reply_to_id,
+        created_at,
+        updated_at
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.sessionId},
+            #{item.messageId},
+            #{item.type},
+            #{item.fromId},
+            #{item.toId},
+            #{item.content},
+            #{item.status},
+            #{item.replyToId},
+            #{item.createdAt},
+            #{item.updatedAt}
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        content = VALUES(content),
+        status = VALUES(status),
+        updated_at = VALUES(updated_at)
+    </insert>
+
+    <!-- 批量查询：增量消息 -->
+    <select id="selectBatchBySessionAndLastId" resultType="com.zcj.common.entity.ChatMessage">
+        SELECT * FROM chat_message
+        WHERE
+        <foreach collection="list" item="item" separator=" OR " open="(" close=")">
+            -- 每个会话的条件：session_id = ? AND message_id > ?
+            (session_id = #{item.sessionId} AND message_id > #{item.lastMessageId})
+        </foreach>
+        ORDER BY session_id, created_at ASC
+    </select>
+
+</mapper>
