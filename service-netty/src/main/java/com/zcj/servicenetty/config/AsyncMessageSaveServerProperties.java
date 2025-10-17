@@ -16,7 +16,7 @@ public class AsyncMessageSaveServerProperties {
     /** 消息队列最大容量（默认10000条） */
     private int maxQueueCapacity = 1000000;
 
-    /** 定时写入数据库间隔（默认10秒） */
+    /** 定时写入数据库间隔 */
     private long scheduledInterval = 5;
 
     /** 日志文件存储路径（默认 message-logs/） */
@@ -37,6 +37,6 @@ public class AsyncMessageSaveServerProperties {
     private int deadLetterFileMaxSize = 1024 * 1024 * 10;
 
     // 需要持久化数据（0: 不持久化，1: 系统异步刷盘，2: 每次单独刷盘）
-    private int saveStrategy = 2;
+    private int saveStrategy = 1;
 
 }

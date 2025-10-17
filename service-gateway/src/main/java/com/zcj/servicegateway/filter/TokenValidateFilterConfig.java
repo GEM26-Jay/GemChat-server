@@ -29,10 +29,11 @@ public class TokenValidateFilterConfig {
 
             // 1. 获取请求路径，排除不需要校验的接口（如登录、注册）
             String path = exchange.getRequest().getPath().value();
-            if (path.contains("/api/user/login") ||
-                path.contains("/api/user/register") ||
-                path.contains("/api/file/uploadAvatar") ||
-                path.contains("/api/netty/getAddr")
+            if (    path.contains("/api/user/login") ||
+                    path.contains("/api/user/register") ||
+                    path.contains("/api/file/uploadAvatar") ||
+                    path.contains("/api/file/downloadAvatar") ||
+                    path.contains("/api/netty/getAddr")
             ) {
                 return chain.filter(exchange); // 直接放行
             }
