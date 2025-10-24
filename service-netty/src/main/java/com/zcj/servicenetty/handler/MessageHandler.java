@@ -1,5 +1,6 @@
 package com.zcj.servicenetty.handler;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.zcj.common.entity.ChatMessage;
 import com.zcj.servicenetty.entity.Protocol;
 import com.zcj.servicenetty.entity.ProtocolDelayRetryWrapper;
@@ -9,26 +10,23 @@ import com.zcj.servicenetty.server.ChannelManager;
 import com.zcj.common.utils.RedisDistributedLock;
 import com.zcj.servicenetty.server.RetryManageServer;
 import io.netty.channel.*;
-import io.netty.util.ReferenceCountUtil;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
-import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import cn.hutool.core.util.ByteUtil;
+import java.util.stream.Collectors;
 
 @Component
 @ChannelHandler.Sharable
-@RequiredArgsConstructor
 @Slf4j
 public class MessageHandler extends ChannelInboundHandlerAdapter {
 
@@ -36,6 +34,19 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     final ChatMessageMapper chatMessageMapper;
     final AsyncMessageSaveServer asyncMessageSaveServer;
     final RetryManageServer retryManageServer;
+    final Cache<String, Set<Long>> sessionCache;
+
+    public MessageHandler(StringRedisTemplate redisTemplate,
+                          ChatMessageMapper chatMessageMapper,
+                          AsyncMessageSaveServer asyncMessageSaveServer,
+                          RetryManageServer retryManageServer,
+                          @Qualifier("session_member_cache") Cache<String, Set<Long>> sessionCache) {
+        this.redisTemplate = redisTemplate;
+        this.chatMessageMapper = chatMessageMapper;
+        this.asyncMessageSaveServer = asyncMessageSaveServer;
+        this.retryManageServer = retryManageServer;
+        this.sessionCache = sessionCache;
+    }
 
     /**
      * 处理客户端指令
@@ -80,10 +91,7 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
         chatMessage.setCreatedAt(protocol.getTimeStamp());
         chatMessage.setUpdatedAt(protocol.getTimeStamp());
         return asyncMessageSaveServer.submit(chatMessage, () -> {
-            byte[] originalContent = protocol.getContent();
-            byte[] bytes = ByteUtil.longToBytes(messageId, ByteOrder.BIG_ENDIAN);
-            protocol.setContent(bytes);
-            protocol.appendContent(originalContent);
+            protocol.setIdentityId(messageId);
             sendMessageToSession(chatMessage.getSessionId(), protocol);
         }, () -> {
             protocol.setType(Protocol.CONTENT_ACK + Protocol.CONTENT_FAILED_INFO);
@@ -111,43 +119,50 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void sendMessageToSession(Long sessionId, Protocol protocol) {
-        String memberQueryKey = "membersIdOfSession:" + sessionId;
+        // 1. 从本地缓存获取会话成员
+        Set<Long> members = sessionCache.get(sessionId.toString(), key -> {
+            // 如果本地缓存没有，再查 Redis 或 DB
+            String redisKey = "membersIdOfSession:" + sessionId;
+            Set<String> redisMembers = redisTemplate.opsForSet().members(redisKey);
 
-        try {
-            Long memberCount = redisTemplate.opsForSet().size(memberQueryKey);
-            if (memberCount == null || memberCount == 0) {
-
+            if (redisMembers == null || redisMembers.isEmpty()) {
+                // Redis 也没有，从数据库查询
                 List<Long> dbMembers = chatMessageMapper.selectMemberIdsInSession(sessionId);
-                if (dbMembers != null && !dbMembers.isEmpty()) {
-
-                    redisTemplate.opsForSet().add(
-                            memberQueryKey,
-                            // 明确指定数组类型为 String[]，与 add 方法的参数类型匹配
-                            dbMembers.stream()
-                                    .map(String::valueOf)
-                                    .toArray(String[]::new)
-                    );
-                    // 设置过期时间
-                    redisTemplate.expire(memberQueryKey, 1, TimeUnit.HOURS);
-                } else {
-                    // 数据库也无数据，直接返回
+                if (dbMembers == null || dbMembers.isEmpty()) {
                     log.debug("会话[{}]无任何成员，无需发送消息", sessionId);
-                    return;
+                    return Set.of(); // 返回空集合，缓存起来
                 }
+
+                // 写入 Redis
+                redisTemplate.opsForSet().add(
+                        redisKey,
+                        dbMembers.stream()
+                                .map(String::valueOf)
+                                .toArray(String[]::new)
+                );
+                redisTemplate.expire(redisKey, 1, TimeUnit.HOURS);
+
+                return Set.copyOf(dbMembers); // 写入本地缓存
             }
 
-            // 4. 扫描Redis集合并发送消息（包含新插入的数据）
-            try (Cursor<String> cursor = redisTemplate.opsForSet().scan(memberQueryKey, ScanOptions.NONE)) {
-                cursor.forEachRemaining(member -> {
-                    Long memberId = Long.parseLong(member);
-                    sendMessage(memberId, protocol);
-                });
-            }
-        } catch (Exception e) {
-            log.info("发送消息到会话[" + sessionId + "]失败", e);
-            throw new RuntimeException("发送消息到会话[" + sessionId + "]失败", e);
+            // Redis 有数据，转换成 Long Set 返回
+            Set<Long> memberSet = redisMembers.stream()
+                    .map(Long::parseLong)
+                    .collect(Collectors.toSet());
+            return memberSet;
+        });
+
+        if (members.isEmpty()) {
+            // 本地缓存和 DB 都为空，直接返回
+            return;
+        }
+
+        // 2. 遍历成员发送消息
+        for (Long memberId : members) {
+            sendMessage(memberId, protocol);
         }
     }
+
 
     final static private String incrementLua = """
                 -- 调用 Redis GET 命令，获取 key 的值（用 redis.call()，抛异常提示错误）

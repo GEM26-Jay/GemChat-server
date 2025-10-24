@@ -23,8 +23,8 @@ public class RedisDistributedLock implements Lock {
 
     // ========================== 静态配置（可通过配置中心动态调整）==========================
     private static final long DEFAULT_LOCK_EXPIRE = 20;
-    private static final long DEFAULT_RETRY_INTERVAL = 1000;
-    private static final ScheduledExecutorService RENEW_EXECUTOR = Executors.newScheduledThreadPool(10);
+    private static final long DEFAULT_RETRY_INTERVAL = 200;
+    private static final ScheduledExecutorService RENEW_EXECUTOR = Executors.newScheduledThreadPool(1);
 
     // 加锁Lua脚本：原子实现“判断锁状态-加锁-重入计数”逻辑
     private static final String LOCK_SCRIPT = """
