@@ -41,7 +41,7 @@ public class AsyncMessageSaveServer {
     private final AsyncMessageSaveServerProperties properties;
 
     // 核心组件
-    private LinkedBlockingQueue<ChatMessage> messageQueue;
+    private LinkedBlockingQueue<ChatMessage> waitingQueue;
     private ThreadPoolExecutor workExecutor;
     private ScheduledExecutorService scheduler;
     private final ConcurrentLinkedDeque<ChatMessage> memoryCache = new ConcurrentLinkedDeque<>();
@@ -712,7 +712,7 @@ public class AsyncMessageSaveServer {
             return false;
         }
         // 3. 非阻塞提交到队列
-        boolean offerSuccess = messageQueue.offer(message);
+        boolean offerSuccess = waitingQueue.offer(message);
         String key = buildKey(message);
 
         if (offerSuccess) {
@@ -723,7 +723,7 @@ public class AsyncMessageSaveServer {
                 failedCallBack.put(key, failure);
             }
             log.debug("消息提交队列成功 sessionId: {}, messageId: {}, 当前队列大小: {}）",
-                    message.getSessionId(), message.getMessageId(), messageQueue.size());
+                    message.getSessionId(), message.getMessageId(), waitingQueue.size());
             return true;
         } else {
             log.error("消息提交失败：队列已满 sessionId: {}, messageId: {}，队列容量：{}",
@@ -740,7 +740,7 @@ public class AsyncMessageSaveServer {
         while (isRunning.get()) {
             try {
                 // 阻塞获取消息（队列空时自动等待，避免CPU空转）
-                ChatMessage message = messageQueue.take();
+                ChatMessage message = waitingQueue.take();
                 processSingleMessage(message); // 处理单条消息（持久化+缓存）
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt(); // 保留中断标记
@@ -865,7 +865,7 @@ public class AsyncMessageSaveServer {
      */
     private void initConfigRelatedComponents() {
         // 消息队列（容量由配置决定）
-        messageQueue = new LinkedBlockingQueue<>(properties.getMaxQueueCapacity());
+        waitingQueue = new LinkedBlockingQueue<>(properties.getMaxQueueCapacity());
 
         // 工作线程池
         workExecutor = new ThreadPoolExecutor(

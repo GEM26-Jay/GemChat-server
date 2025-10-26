@@ -25,8 +25,8 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
         log.info("开始注册自定义拦截器...");
         registry.addInterceptor(tokenInterceptor)
                 .addPathPatterns("/**")
-                .excludePathPatterns("/api/file/uploadAvatar");
-
+                .excludePathPatterns("/api/file/uploadAvatar")
+                .excludePathPatterns("/api/file/downloadAvatar");
     }
 
     @Override

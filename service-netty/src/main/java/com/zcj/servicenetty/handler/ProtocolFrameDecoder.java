@@ -8,8 +8,8 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 public class ProtocolFrameDecoder extends LengthFieldBasedFrameDecoder {
     // 最大消息长度（考虑到length是short类型，最大32767字节）
     private static final int MAX_FRAME_LENGTH = Short.MAX_VALUE;
-    // length字段的偏移量：魔数(2) + 版本(2) + 命令(4) + fromId(8) + toId(8) + time(8) = 30
-    private static final int LENGTH_FIELD_OFFSET = 2 + 2 + 4 + 8 + 8 + 8;
+    // length字段的偏移量：魔数(2) + 版本(2) + 命令(4) + fromId(8) + toId(8) + identity(8) + time(8) = 40
+    private static final int LENGTH_FIELD_OFFSET = 2 + 2 + 4 + 8 + 8 + 8 + 8;
     // length字段本身占用2字节（short类型）
     private static final int LENGTH_FIELD_LENGTH = 2;
     // 长度调整值：0，因为length已经准确表示消息体长度

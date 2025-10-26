@@ -193,7 +193,7 @@ public class Protocol implements AutoCloseable {
         protocol.setType(buf.readInt());
         protocol.setFromId(buf.readLong());
         protocol.setToId(buf.readLong());
-        protocol.setIdentityId(buf.readLong()); // 新增 identityId
+        protocol.setIdentityId(buf.readLong());
         protocol.setTimeStamp(buf.readLong());
         short length = buf.readShort();
         protocol.setLength(length);
