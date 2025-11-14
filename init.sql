@@ -2,7 +2,26 @@ create database if not exists gem_chat;
 
 use gem_chat;
 
-create table if not exists chat_group
+create table avatar_box
+(
+    id          bigint                   not null comment '主键ID'
+        primary key,
+    name        varchar(255)             not null comment '文件名',
+    fingerprint char(64)                 not null comment '文件指纹(SHA256)',
+    size        bigint                   not null comment '文件大小(字节)',
+    mime_type   varchar(32)              not null comment '文件MIME类型',
+    location    varchar(512)             not null comment '文件的物理存储路径',
+    refer_count int unsigned default '0' not null comment '被引用次数',
+    status      tinyint      default 1   not null comment '0-正在上传，1-成功上传，2-上传失败，3-已删除',
+    from_id     bigint                   null comment '文件来源，用户ID',
+    created_at  bigint                   not null comment '创建时间戳',
+    updated_at  bigint                   not null comment '更新时间戳',
+    constraint uk_fingerprint_size
+        unique (fingerprint, size, mime_type)
+)
+    comment '用户头像仓库';
+
+create table chat_group
 (
     id          bigint auto_increment comment '群聊ID，主键'
         primary key,
@@ -17,13 +36,12 @@ create table if not exists chat_group
 )
     comment '群聊信息表';
 
-create table if not exists chat_message
+create table chat_message
 (
     session_id  bigint            not null comment '会话ID',
     message_id  bigint            not null comment '消息ID，在同一会话内自增',
     type        int               not null comment '消息类型',
     from_id     bigint            not null comment '发送者ID',
-    to_id       bigint            not null comment '接收者ID',
     content     text              null comment '消息内容',
     status      tinyint default 0 not null comment '消息状态',
     reply_to_id bigint            null comment '引用消息ID',
@@ -33,7 +51,7 @@ create table if not exists chat_message
 )
     comment '聊天消息表';
 
-create table if not exists chat_session
+create table chat_session
 (
     id                   bigint auto_increment comment '会话ID，主键'
         primary key,
@@ -51,25 +69,28 @@ create table if not exists chat_session
 )
     comment '聊天会话表';
 
-create table if not exists file_box
+create table file_box
 (
-    id          bigint                   not null comment '主键ID'
+    id           bigint                   not null comment '主键ID'
         primary key,
-    name        varchar(255)             not null comment '文件名',
-    fingerprint char(64)                 not null comment '文件指纹(SHA256)',
-    size        bigint                   not null comment '文件大小(字节)',
-    mime_type   varchar(32)              not null comment '文件MIME类型',
-    location    varchar(512)             not null comment '文件的物理存储路径',
-    refer_count int unsigned default '0' not null comment '被引用次数',
-    status      tinyint      default 1   not null comment '状态: 1-正常, 0-已删除',
-    created_at  bigint                   not null comment '创建时间戳',
-    updated_at  bigint                   not null comment '更新时间戳',
+    name         varchar(255)             not null comment '文件名',
+    fingerprint  char(64)                 not null comment '文件指纹(SHA256)',
+    size         bigint                   not null comment '文件大小(字节)',
+    mime_type    varchar(32)              not null comment '文件MIME类型',
+    location     varchar(512)             not null comment '文件的物理存储路径',
+    refer_count  int unsigned default '0' not null comment '被引用次数',
+    status       tinyint      default 1   not null comment '0-正在上传，1-成功上传，2-上传失败，3-已删除',
+    from_id      bigint                   not null comment '文件来源，用户ID',
+    from_type    tinyint                  null comment '0-聊天上传，1-云盘上传',
+    from_session bigint                   null comment 'from_type=0,则为会话ID，否则为空',
+    created_at   bigint                   not null comment '创建时间戳',
+    updated_at   bigint                   not null comment '更新时间戳',
     constraint uk_fingerprint_size
         unique (fingerprint, size, mime_type)
 )
     comment '文件仓库';
 
-create table if not exists friend_request
+create table friend_request
 (
     id          bigint unsigned         not null comment '申请ID，主键'
         primary key,
@@ -84,7 +105,7 @@ create table if not exists friend_request
 )
     comment '好友申请表';
 
-create table if not exists group_member
+create table group_member
 (
     group_id   bigint            not null comment '群聊ID',
     user_id    bigint            not null comment '用户ID',
@@ -97,7 +118,7 @@ create table if not exists group_member
 )
     comment '群聊用户关联表';
 
-create table if not exists user
+create table user
 (
     id            bigint unsigned                           not null comment '用户ID，主键'
         primary key,
@@ -115,7 +136,7 @@ create table if not exists user
 )
     comment '用户基本信息表';
 
-create table if not exists user_friend
+create table user_friend
 (
     id            bigint unsigned        not null comment '关系ID，主键'
         primary key,
@@ -131,7 +152,7 @@ create table if not exists user_friend
 )
     comment '用户关系表';
 
-create table if not exists user_login
+create table user_login
 (
     id          bigint unsigned   not null comment '日志ID，主键'
         primary key,
@@ -144,4 +165,3 @@ create table if not exists user_login
     created_at  bigint            null comment '登录时间'
 )
     comment '用户登录日志表';
-
