@@ -22,49 +22,40 @@ import org.springframework.web.bind.annotation.*;
 public class FileController {
 
     final private FileService fileService;
-    final private StsService stsService;
 
     @PostMapping("/upload")
     @Operation(summary = "获取上传文件的STS令牌", description = "获取用于前端直传OSS的临时令牌")
-    public Result<FileTokenVO> getUploadToken(@RequestBody FileUploadDTO fileUploadDTO) {
+    public Result<FileTokenVO> upload(@RequestBody FileUploadDTO fileUploadDTO) {
         Long userId = UserContext.getId();
-        log.info("用户{}请求上传令牌，原始文件大小:{}", userId, fileUploadDTO.getSize());
-        FileTokenVO vo = fileService.doUserFileUpload(fileUploadDTO);
-        return Result.success(vo);
-    }
-
-    @PostMapping("/insertDB")
-    @Operation(summary = "获取上传文件的STS令牌", description = "获取用于前端直传OSS的临时令牌")
-    public Result<Void> insertDB(@RequestBody FileUploadDTO fileUploadDTO) {
-        Long userId = UserContext.getId();
-        fileService.insertDB(fileUploadDTO);
-        return Result.success();
+        log.info("用户[{}]请求上传令牌，原始文件名:{}", userId, fileUploadDTO.getName());
+        FileTokenVO token = fileService.upload(fileUploadDTO);
+        return Result.success(token);
     }
 
     @GetMapping("/download")
     @Operation(summary = "获取下载文件的STS令牌", description = "获取用于前端从OSS下载文件的临时令牌")
-    public Result<FileTokenVO> getDownloadToken(String fileName) {
+    public Result<FileTokenVO> download(String fileName) {
         Long userId = UserContext.getId();
-        log.info("用户[{}]请求下载令牌", userId);
-        FileTokenVO token = fileService.getDownloadToken("userFile", fileName);
+        log.info("用户[{}]请求用户文件下载令牌, 文件名: {}", userId, fileName);
+        FileTokenVO token = fileService.download(fileName);
         return Result.success(token);
     }
 
-    @PostMapping("/uploadAvatar")
-    @Operation(summary = "获取上传头像文件的STS令牌", description = "获取用于前端直传OSS的临时令牌")
-    public Result<FileTokenVO> getAvatarUploadToken(@RequestBody FileUploadDTO fileUploadDTO) {
+    @PutMapping("/successUpload")
+    @Operation(summary = "上传成功回调", description = "更新数据库状态")
+    public Result<Void> successUpload(@RequestParam String  fileName) {
         Long userId = UserContext.getId();
-        log.info("用户{}请求上传令牌，原始大小:{}", userId, fileUploadDTO.getSize());
-        FileTokenVO token = fileService.doAvatarUpload(fileUploadDTO);
-        return Result.success(token);
+        log.info("用户[{}], 执行上传成功回调, 文件名: {}", userId, fileName);
+        fileService.successUpload(fileName);
+        return Result.success();
     }
 
-    @GetMapping("/downloadAvatar")
-    @Operation(summary = "获取下载头像文件的STS令牌", description = "获取用于前端从OSS下载文件的临时令牌")
-    public Result<FileTokenVO> getAvatarDownloadToken(String fileName) {
+    @PutMapping("/failUpload")
+    @Operation(summary = "上传失败回调", description = "更新数据库状态")
+    public Result<Void> failUpload(@RequestParam String fileName) {
         Long userId = UserContext.getId();
-        log.info("用户{}请求下载令牌", userId);
-        FileTokenVO token = fileService.getDownloadToken("avatars", fileName);
-        return Result.success(token);
+        log.info("用户[{}], 执行上传失败回调, 文件名: {}", userId, fileName);
+        fileService.failUpload(fileName);
+        return Result.success();
     }
 }

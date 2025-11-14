@@ -1,6 +1,7 @@
 package com.zcj.servicefile.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zcj.servicefile.interceptor.LooseTokenInterceptor;
 import com.zcj.servicefile.interceptor.TokenInterceptor;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,16 +18,17 @@ import java.util.List;
 @AllArgsConstructor
 public class WebMvcConfiguration extends WebMvcConfigurationSupport {
 
-    private ObjectMapper objectMapper; // 注入你自定义的ObjectMapper
-    TokenInterceptor tokenInterceptor;
+    private final ObjectMapper objectMapper; // 注入你自定义的ObjectMapper
+    private final TokenInterceptor tokenInterceptor;
+    private final LooseTokenInterceptor looseTokenInterceptor;
 
     protected void addInterceptors(InterceptorRegistry registry) {
 
         log.info("开始注册自定义拦截器...");
         registry.addInterceptor(tokenInterceptor)
-                .addPathPatterns("/**")
-                .excludePathPatterns("/api/file/uploadAvatar")
-                .excludePathPatterns("/api/file/downloadAvatar");
+                .addPathPatterns("/api/file/**");
+        registry.addInterceptor(looseTokenInterceptor)
+                .addPathPatterns("/api/avatar/**");
     }
 
     @Override

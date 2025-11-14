@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface ChatServiceFeignClient {
 
     @GetMapping("/api/chat/session/addSingle")
-    public Result<ChatSession> addChatSessionSingle(@RequestParam("firstId") Long firstId,
+    Result<ChatSession> addChatSessionSingle(@RequestParam("firstId") Long firstId,
                                                     @RequestParam("secondId") Long secondId);
 
     @GetMapping("/api/chat/session/addGroup")
-    public Result<ChatSession> addChatSessionGroup(@RequestParam("groupId") Long groupId,
+    Result<ChatSession> addChatSessionGroup(@RequestParam("groupId") Long groupId,
                                                    @RequestParam("ownerId") Long ownerId);
 }

@@ -11,10 +11,10 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class CaffeineConfig {
 
-    @Bean(name = "session_member_cache")
-    public Cache<String, Set<Long>> globalCache() {
+    @Bean()
+    public Cache<String, Set<Long>> session_member_cache() {
         return Caffeine.newBuilder()
-                .maximumSize(1000)                     // 最大缓存条数
+                .maximumSize(100000)                     // 最大缓存条数
                 .expireAfterWrite(2, TimeUnit.MINUTES) // 写入后10分钟过期
                 .build();
     }

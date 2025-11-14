@@ -31,9 +31,7 @@ public class TokenValidateFilterConfig {
             String path = exchange.getRequest().getPath().value();
             if (    path.contains("/api/user/login") ||
                     path.contains("/api/user/register") ||
-                    path.contains("/api/file/uploadAvatar") ||
-                    path.contains("/api/file/downloadAvatar") ||
-                    path.contains("/api/netty/getAddr")
+                    path.contains("/api/avatar/")
             ) {
                 return chain.filter(exchange); // 直接放行
             }

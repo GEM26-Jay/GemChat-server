@@ -1,9 +1,6 @@
 package com.zcj.servicenetty.server;
 
-import com.zcj.servicenetty.handler.AuthHandler;
-import com.zcj.servicenetty.handler.MessageHandler;
-import com.zcj.servicenetty.handler.ProtocolEncoder;
-import com.zcj.servicenetty.handler.ProtocolFrameDecoder;
+import com.zcj.servicenetty.handler.*;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
@@ -28,6 +25,7 @@ public class NettyServerChannelInitializer extends ChannelInitializer<SocketChan
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast(new ProtocolFrameDecoder());
         pipeline.addLast(authHandlerProvider.getObject());
+        pipeline.addLast(new IdempotentHandler());
         pipeline.addLast(messageHandler);
         pipeline.addLast(protocolEncoder);
     }

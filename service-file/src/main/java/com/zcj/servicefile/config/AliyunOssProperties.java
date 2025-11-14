@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "aliyun.oss")
 public class AliyunOssProperties {
 
-    private String endpoint;
+    private String ossEndpoint;
+    private String stsEndpoint;
     private String region;
     private String accessKeyId;
     private String accessKeySecret;

@@ -12,7 +12,7 @@ import java.time.LocalDate;
 public class UserProfileVO {
 
     @Schema(description = "用户ID", example = "123456")
-    @JsonSerialize(using = ToStringSerializer.class) // 关键注解
+    @JsonSerialize(using = ToStringSerializer.class)    // 客户端是使用string接收
     private Long id;
 
     @Schema(description = "用户名", example = "tech_enthusiast")

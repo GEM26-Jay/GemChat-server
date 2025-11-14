@@ -6,6 +6,7 @@ import com.zcj.common.vo.Result;
 import io.netty.channel.Channel;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,15 +17,18 @@ import java.util.List;
 @Slf4j
 public class AdminController {
 
+    @Autowired
+    ChannelManager channelManager;
+
     @GetMapping("/pushSync")
     public Result<Void> sync(@RequestParam Long id,
                        @RequestParam String table) {
         log.info("/admin/sync id:{}, table:{}", id, table);
-        Channel channel = ChannelManager.getChannel(id);
+        Channel channel = channelManager.getChannel(id);
         if (channel != null) {
             Protocol protocol = new Protocol();
             protocol.setType(Protocol.ORDER_SYNC | Protocol.CONTENT_TEXT);
-            protocol.setToId(id);
+            protocol.setSessionId(id);
             protocol.setContent(table);
             protocol.setTimeStamp(System.currentTimeMillis());
             channel.writeAndFlush(protocol);

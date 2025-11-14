@@ -6,7 +6,7 @@
 
     <parent>
         <groupId>com.zcj</groupId>
-        <artifactId>GemChat-serve</artifactId>
+        <artifactId>GemChat-server</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
 
@@ -114,11 +114,6 @@
         <dependency>
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
         </dependency>
 
     </dependencies>

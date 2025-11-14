@@ -10,14 +10,11 @@ import lombok.Data;
 import java.io.Serial;
 import java.io.Serializable;
 
-/**
- * 文件映射实体类，对应数据库中的 file_map 表
- * 用于基于内容哈希的文件去重存储
- */
-@Schema(description = "文件仓库")
+
+@Schema(description = "头像仓库")
 @Data
-@TableName("file_box")
-public class FileBox implements Serializable {
+@TableName("avatar_box")
+public class AvatarBox implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -56,12 +53,6 @@ public class FileBox implements Serializable {
 
     @Schema(description = "上传用户", example = "1")
     private Long fromId;
-
-    @Schema(description = "上传类型: 0-聊天上传，1-云盘上传", example = "0")
-    private Integer fromType;
-
-    @Schema(description = "上传类型=0时有效，上传会话ID", example = "0")
-    private Long fromSession;
 
     @Schema(description = "创建时间戳", example = "1672531200000")
     private Long createdAt;

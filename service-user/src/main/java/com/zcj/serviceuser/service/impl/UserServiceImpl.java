@@ -9,6 +9,7 @@ import com.zcj.common.dto.LoginDTO;
 import com.zcj.common.dto.UserDTO;
 import com.zcj.common.entity.User;
 import com.zcj.common.entity.UserLogin;
+import com.zcj.common.feign.FileServiceFeignClient;
 import com.zcj.serviceuser.mapper.UserLoginMapper;
 import com.zcj.serviceuser.mapper.UserMapper;
 import com.zcj.serviceuser.service.UserService;
@@ -16,6 +17,8 @@ import com.zcj.common.utils.JWTUtil;
 import com.zcj.common.utils.SnowflakeIdGenerator;
 import com.zcj.common.vo.Result;
 import com.zcj.common.vo.UserProfileVO;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,22 +34,20 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    @Autowired
-    private JWTUtil jwtUtil;
-    @Autowired
-    private UserMapper userMapper;
-    @Autowired
-    private SnowflakeIdGenerator snowflakeIdGenerator;
-    @Autowired
-    private UserLoginMapper userLoginMapper;
-    @Autowired
-    private ObjectMapper objectMapper;
+    final private JWTUtil jwtUtil;
+    final private UserMapper userMapper;
+    final private SnowflakeIdGenerator snowflakeIdGenerator;
+    final private UserLoginMapper userLoginMapper;
+    final private ObjectMapper objectMapper;
+    final private FileServiceFeignClient fileServiceFeignClient;
 
     private static final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
     @Override
+    @Transactional
     public Result<String> login(LoginDTO loginDTO, String clientIp) {
 
         if (!verifyAccountExist(loginDTO.getAccount())) {
@@ -82,7 +83,7 @@ public class UserServiceImpl implements UserService {
         String jwt = jwtUtil.create(claims);
 
         userLogin.setStatus(UserLogin.TYPE_SUCCESS);
-//        userLoginMapper.insert(userLogin);
+        userLoginMapper.insert(userLogin);
         return Result.success(jwt);
     }
 
@@ -123,6 +124,7 @@ public class UserServiceImpl implements UserService {
         // 保存用户
         try {
             userMapper.insert(user);
+            fileServiceFeignClient.addRef(user.getAvatar(), user.getId());
             return Result.success();
         } catch (Exception e) {
             log.error("用户注册失败", e);

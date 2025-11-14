@@ -3,35 +3,30 @@ package com.zcj.servicenetty.bootstrap;
 import com.zcj.servicenetty.config.NettyProperties;
 import com.zcj.servicenetty.server.ChannelManager;
 import com.zcj.servicenetty.server.NettyServerChannelInitializer;
-import com.zcj.servicenetty.server.RetryManageServer;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class NettyServerBootstrap {
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
 
-    @Autowired
-    private NettyProperties properties;
-    @Autowired
-    private NettyServerChannelInitializer channelInitializer;
-    @Autowired
-    private ChannelManager channelManager;
-    @Autowired
-    private RetryManageServer retryManageServer;
+    private final NettyProperties properties;
+    private final NettyServerChannelInitializer channelInitializer;
+    private final ChannelManager channelManager;
+
 
     public void start() {
-        // 重试管理器启动
-        retryManageServer.start();
         // 启动独立线程执行Netty逻辑，避免阻塞Spring Boot主线程
         new Thread(() -> {
             bossGroup = new NioEventLoopGroup(1);

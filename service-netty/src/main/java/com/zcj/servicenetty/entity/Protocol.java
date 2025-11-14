@@ -11,42 +11,47 @@ import java.nio.charset.StandardCharsets;
  */
 @Slf4j
 @Data
-public class Protocol implements AutoCloseable {
+public class Protocol {
 
     // 命令类型常量定义（高16位：系统命令）
-    public static final int ORDER_SYSTEM_PUSH = 1 << 16;  // 系统推送命令
+    public static final int ORDER_SYSTEM = 1 << 16;       // 系统推送
     public static final int ORDER_AUTH = 2 << 16;         // 认证命令
     public static final int ORDER_SYNC = 3 << 16;         // 同步命令
-    public static final int ORDER_HEART = 4 << 16;        // 心跳命令
-    public static final int ORDER_MESSAGE = 5 << 16;      // 消息命令
+    public static final int ORDER_MESSAGE = 4 << 16;      // 消息命令
+    public static final int ORDER_ACK = 5 << 16;          // 消息响应
 
     // 内容类型（低16位：消息载体类型）
-    public static final int CONTENT_FAILED_INFO = -1;  // 发送失败应答
-    public static final int CONTENT_TEXT = 1;          // 文本消息
+    public static final int CONTENT_FAILED = -1;       // 失败响应
+    public static final int CONTENT_EMPTY = 0;         // 空消息(无意义)
+    public static final int CONTENT_TEXT = 1;          // 字符串文本
     public static final int CONTENT_IMAGE = 2;         // 图片消息
-    public static final int CONTENT_FILE = 3;          // 文件消息
-    public static final int CONTENT_VOICE = 4;         // 语音消息
-    public static final int CONTENT_VIDEO = 5;         // 视频消息
+    public static final int CONTENT_AUDIO = 3;         // 语音消息
+    public static final int CONTENT_VIDEO = 4;         // 视频消息
+    public static final int CONTENT_OTHER_FILE = 5;    // 其他文件类型
     public static final int CONTENT_LOCATION = 6;      // 位置消息
-    public static final int CONTENT_ACK = 99;          // 响应信号
+
+    // 长度字段偏移量：魔数(2) + 版本(2) + 类型(4) + fromId(8) + identityId(8) + sessionId(8) + messageId(8) + 时间戳(8) + 长度(4)
+    public static final int LengthFiledBias = 2 + 2 + 4 + 8 + 8 + 8 + 8 + 8;
 
     // 协议魔数常量（short类型，2字节，用于数据包合法性校验）
     public static final short MAGIC_NUMBER = (short) 0xBABE;
-
     // 协议版本号（short类型，2字节），默认值为 1
     private short version = 1;
-    // 消息命令类型（高16位+中8位+低8位组合，int类型4字节）
+
+    // 消息命令类型（高16位+低16位组合，int类型4字节）
     private int type;
     // 发送方唯一标识（long类型8字节）
     private long fromId = 0;
-    // 接收方唯一标识（long类型8字节）
-    private long toId = 0;
-    // 唯一标识符 (可用来存放消息ID)
-    private long identityId;
+    // 消息标识
+    private long identityId = 0;
+    // 目标会话ID
+    private long sessionId = 0;
+    // 消息ID
+    private long messageId = 0;
     // 消息时间戳（long类型8字节）
     private long timeStamp = 0;
-    // 消息体字节长度（short类型2字节）
-    private short length;
+    // 消息体字节长度（int类型4字节）
+    private int length;
     // 消息体内容
     private byte[] content;
 
@@ -54,7 +59,7 @@ public class Protocol implements AutoCloseable {
      * 计算消息体长度并更新 length 字段
      */
     public void calculateLength() {
-        this.length = (short) (content == null ? 0 : content.length);
+        this.length = (content == null ? 0 : content.length);
     }
 
     /**
@@ -166,10 +171,11 @@ public class Protocol implements AutoCloseable {
         buf.writeShort(version);
         buf.writeInt(type);
         buf.writeLong(fromId);
-        buf.writeLong(toId);
-        buf.writeLong(identityId); // 新增 identityId
+        buf.writeLong(identityId);  // 修复：写入identityId
+        buf.writeLong(sessionId);
+        buf.writeLong(messageId);
         buf.writeLong(timeStamp);
-        buf.writeShort(length);
+        buf.writeInt(length);  // 修复：长度字段改为int类型
 
         if (length > 0 && content != null) {
             buf.writeBytes(content);
@@ -192,10 +198,11 @@ public class Protocol implements AutoCloseable {
         protocol.setVersion(buf.readShort());
         protocol.setType(buf.readInt());
         protocol.setFromId(buf.readLong());
-        protocol.setToId(buf.readLong());
-        protocol.setIdentityId(buf.readLong());
+        protocol.setIdentityId(buf.readLong());  // 修复：读取identityId
+        protocol.setSessionId(buf.readLong());
+        protocol.setMessageId(buf.readLong());
         protocol.setTimeStamp(buf.readLong());
-        short length = buf.readShort();
+        int length = buf.readInt();  // 修复：长度字段改为int类型
         protocol.setLength(length);
 
         if (length > 0) {
@@ -212,13 +219,6 @@ public class Protocol implements AutoCloseable {
         }
 
         return protocol;
-    }
-
-    /**
-     * 安全释放资源
-     */
-    public void releaseContent() {
-        this.content = null;
     }
 
     /**
@@ -258,21 +258,14 @@ public class Protocol implements AutoCloseable {
                 "version=" + version +
                 ", type=0x" + Integer.toHexString(type) +
                 ", fromId=" + fromId +
-                ", toId=" + toId +
-                ", identityId=" + identityId +
+                ", identityId=" + identityId +  // 修复：显示identityId
+                ", sessionId=" + sessionId +    // 修复：显示sessionId
+                ", messageId=" + messageId +
                 ", timeStamp=" + timeStamp +
                 ", length=" + length +
                 ", contentLength=" + (content == null ? 0 : content.length) +
                 ", orderType=0x" + Integer.toHexString(getOrderType()) +
                 ", contentType=0x" + Integer.toHexString(getContentType()) +
                 '}';
-    }
-
-    /**
-     * AutoCloseable 接口实现
-     */
-    @Override
-    public void close() throws Exception {
-        releaseContent();
     }
 }

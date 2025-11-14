@@ -5,8 +5,6 @@ import com.aliyuncs.auth.sts.AssumeRoleRequest;
 import com.aliyuncs.auth.sts.AssumeRoleResponse;
 import com.aliyuncs.exceptions.ClientException;
 import com.aliyuncs.http.MethodType;
-import com.aliyuncs.profile.DefaultProfile;
-import com.aliyuncs.profile.IClientProfile;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zcj.common.context.UserContext;
@@ -17,10 +15,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 @Service
@@ -30,6 +24,7 @@ public class StsServiceImpl implements StsService {
 
     private final AliyunOssProperties aliyunOssProperties;
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private final DefaultAcsClient client;
 
     // 常量定义
     private static final List<String> OSS_UPLOAD_ACTIONS = Arrays.asList(
@@ -52,8 +47,7 @@ public class StsServiceImpl implements StsService {
         Assert.hasText(fileName, "文件名不能为空");
 
         try {
-            String newFileName = generateNewName(fileName);
-            String ossInnerPath = String.format("%s/%s", dirName, newFileName);
+            String ossInnerPath = String.format("%s/%s", dirName, fileName);
             String httpAccessPath = generateHttpAccessPath(ossInnerPath);
 
             // 生成权限策略（精确到当前文件路径）
@@ -69,7 +63,7 @@ public class StsServiceImpl implements StsService {
             // 6. 构建并返回 FileTokenVO（严格匹配VO字段）
             return buildFileTokenVO(
                     stsResponse,
-                    newFileName,
+                    fileName,
                     ossInnerPath,
                     httpAccessPath,
                     false, // 上传时文件未存在（无需校验）
@@ -121,41 +115,11 @@ public class StsServiceImpl implements StsService {
     }
 
     /**
-     * 生成唯一文件名（保持原逻辑，确保上传文件不重名）
-     */
-    private String generateNewName(String originalFileName) {
-        String fileExt = StringUtils.getFilenameExtension(originalFileName);
-        String ext = StringUtils.hasText(fileExt) ? "." + fileExt : "";
-        try {
-            String uniqueStr = System.currentTimeMillis() + "_"
-                    + UUID.randomUUID() + "_"
-                    + UserContext.getId() + "_"
-                    + originalFileName.hashCode();
-
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(uniqueStr.getBytes());
-
-            StringBuilder hashStr = new StringBuilder(64);
-            for (byte b : hashBytes) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hashStr.append('0');
-                }
-                hashStr.append(hex);
-            }
-            return hashStr.toString() + ext;
-        } catch (NoSuchAlgorithmException e) {
-            log.error("生成文件名哈希失败，使用降级方案", e);
-            return System.currentTimeMillis() + "_" + UUID.randomUUID() + ext;
-        }
-    }
-
-    /**
      * 生成 HTTP 访问路径（供业务层访问文件，如前端预览）
      */
     private String generateHttpAccessPath(String ossInnerPath) {
         String bucketName = aliyunOssProperties.getBucketName();
-        String endpoint = aliyunOssProperties.getEndpoint();
+        String endpoint = aliyunOssProperties.getStsEndpoint();
         Assert.hasText(bucketName, "OSS桶名称未配置");
         Assert.hasText(endpoint, "OSS端点未配置");
         // https://zhouchunjie-chat.oss-cn-hangzhou.aliyuncs.com/avatars
@@ -197,24 +161,6 @@ public class StsServiceImpl implements StsService {
      */
     private AssumeRoleResponse getAliyunStsResponse(String policy, String roleSessionName, Long durationSeconds)
             throws ClientException {
-        validateAliyunConfig();
-
-        String regionId = aliyunOssProperties.getRegion();
-        String stsEndpoint = String.format("sts.%s.aliyuncs.com", regionId);
-        // 从Nacos配置中读取AccessKey（关键：解决凭证为空问题）
-        String accessKeyId = aliyunOssProperties.getAccessKeyId();
-        String accessKeySecret = aliyunOssProperties.getAccessKeySecret();
-
-        // 1. 注册STS服务端点
-        DefaultProfile.addEndpoint(regionId, "Sts", stsEndpoint);
-
-        // 2. 使用Nacos配置的AccessKey初始化客户端
-        IClientProfile profile = DefaultProfile.getProfile(
-                regionId,
-                accessKeyId,
-                accessKeySecret
-        );
-        DefaultAcsClient client = new DefaultAcsClient(profile);
 
         // 3. 构建STS请求
         AssumeRoleRequest request = new AssumeRoleRequest();
@@ -262,14 +208,4 @@ public class StsServiceImpl implements StsService {
         return tokenVO;
     }
 
-    /**
-     * 校验阿里云基础配置（仅校验非AccessKey的必填项）
-     */
-    private void validateAliyunConfig() {
-        Assert.hasText(aliyunOssProperties.getRegion(), "OSS区域未配置");
-        Assert.hasText(aliyunOssProperties.getRoleArn(), "OSS角色ARN未配置"); // 角色ARN为核心配置
-        Assert.hasText(aliyunOssProperties.getBucketName(), "OSS桶名称未配置");
-        Assert.hasText(aliyunOssProperties.getEndpoint(), "OSS端点未配置");
-        // 关键修改：移除永久AccessKey相关校验
-    }
 }

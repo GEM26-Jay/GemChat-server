@@ -16,20 +16,20 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class ChannelManager {
     // 用户ID -> Channel的映射（ConcurrentHashMap确保线程安全）
-    private static final Map<Long, Channel> userChannelMap = new ConcurrentHashMap<>();
+    private final Map<Long, Channel> userChannelMap = new ConcurrentHashMap<>();
 
     // 所有已验证的连接集合（方便广播等操作）
-    private static final ChannelGroup allChannels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
+    private final ChannelGroup allChannels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
 
     // 用户ID属性键（用于Channel绑定用户ID）
-    public static final AttributeKey<Long> USER_ID_ATTR = AttributeKey.newInstance("userId");
+    public final AttributeKey<Long> USER_ID_ATTR = AttributeKey.newInstance("userId");
 
     /**
      * 绑定用户ID与Channel（双向绑定）
      * @param userId 用户唯一标识
      * @param channel 连接通道
      */
-    public static void bind(Long userId, Channel channel) {
+    public void bind(Long userId, Channel channel) {
         if (userId == null || channel == null) {
             return;
         }
@@ -45,7 +45,7 @@ public class ChannelManager {
      * 根据用户ID解除绑定
      * @param userId 用户唯一标识
      */
-    public static void unbind(Long userId) {
+    public void unbind(Long userId) {
         if (userId == null) {
             return;
         }
@@ -63,7 +63,7 @@ public class ChannelManager {
      * 根据Channel解除绑定（连接关闭时调用）
      * @param channel 连接通道
      */
-    public static void unbind(Channel channel) {
+    public void unbind(Channel channel) {
         if (channel == null) {
             return;
         }
@@ -84,7 +84,7 @@ public class ChannelManager {
      * @param userId 用户唯一标识
      * @return 对应的Channel，若不存在或已关闭则返回null
      */
-    public static Channel getChannel(Long userId) {
+    public Channel getChannel(Long userId) {
         if (userId == null) {
             return null;
         }
@@ -98,14 +98,14 @@ public class ChannelManager {
      * @param channel 连接通道
      * @return 对应的用户ID，若未绑定则返回null
      */
-    public static Long getUserId(Channel channel) {
+    public Long getUserId(Channel channel) {
         return channel != null ? channel.attr(USER_ID_ATTR).get() : null;
     }
 
     /**
      * 清理所有绑定关系（用于服务器重置场景）
      */
-    public static void clean() {
+    public void clean() {
         // 1. 清除所有Channel的用户ID属性
         allChannels.forEach(channel -> channel.attr(USER_ID_ATTR).set(null));
         // 2. 清空映射和全局管理组
@@ -117,7 +117,7 @@ public class ChannelManager {
      * 获取所有活跃的连接通道
      * @return 通道组
      */
-    public static ChannelGroup getAllActiveChannels() {
+    public ChannelGroup getAllActiveChannels() {
         return allChannels;
     }
 
@@ -126,7 +126,7 @@ public class ChannelManager {
      * @param userId 用户唯一标识
      * @return 在线状态（true：在线，false：离线）
      */
-    public static boolean isOnline(Long userId) {
+    public boolean isOnline(Long userId) {
         return getChannel(userId) != null;
     }
 }

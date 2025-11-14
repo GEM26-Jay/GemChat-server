@@ -23,6 +23,8 @@ public class AuthHandler extends ChannelInboundHandlerAdapter {
 
     @Autowired
     private JWTUtil jwtUtil;
+    @Autowired
+    private ChannelManager channelManager;
 
     /**
      * 处理客户端发送的消息（首次应为验证请求）
@@ -40,12 +42,14 @@ public class AuthHandler extends ChannelInboundHandlerAdapter {
                 // 2. 验证token
                 boolean valid = validateToken(userId, token);
                 if (valid) {
-                    log.debug("用户 {} 验证通过，绑定连接", userId);
+                    log.info("用户 {} 验证通过，绑定连接", userId);
 
                     // 3. 验证通过：绑定用户ID与Channel
-                    ChannelManager.bind(userId, ctx.channel());
+                    channelManager.bind(userId, ctx.channel());
                     isLogin = true;
-
+                    Protocol re = new Protocol();
+                    re.setType(Protocol.ORDER_AUTH, Protocol.CONTENT_EMPTY);
+                    ctx.writeAndFlush(re);
                 } else {
                     // 验证失败：关闭连接
                     log.warn("用户 {} 验证失败，关闭连接", userId);
@@ -76,7 +80,7 @@ public class AuthHandler extends ChannelInboundHandlerAdapter {
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        ChannelManager.unbind(ctx.channel());
+        channelManager.unbind(ctx.channel());
         log.debug("连接关闭，已解除用户绑定");
     }
 
@@ -86,7 +90,7 @@ public class AuthHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("验证过程发生异常", cause);
-        ChannelManager.unbind(ctx.channel());
+        channelManager.unbind(ctx.channel());
         ctx.close();
     }
 }
