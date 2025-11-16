@@ -1,6 +1,3 @@
-server:
-  port: 8804
-
 spring:
   application:
     name: service-netty

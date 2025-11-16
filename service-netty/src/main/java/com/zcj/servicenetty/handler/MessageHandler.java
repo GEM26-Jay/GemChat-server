@@ -4,12 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zcj.common.entity.ChatMessage;
 import com.zcj.servicenetty.consumer.MessageConsumer;
-import com.zcj.servicenetty.entity.Protocol;
+import com.zcj.common.entity.Protocol;
 import com.zcj.servicenetty.mapper.ChatMessageMapper;
 import com.zcj.common.utils.RedisDistributedLock;
 import io.netty.channel.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -55,63 +56,56 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
      * 处理客户端指令
      */
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
         if (msg instanceof Protocol protocol && protocol.hasType(Protocol.ORDER_MESSAGE)) {
-            log.debug("[MessageHandler]: come [{}]", protocol.getMessageString());
-            int originalLength = protocol.getLength();
-            if (originalLength == 0) {
-                return;
-            }
-            Long sessionId = protocol.getSessionId();
-            String queryKey = "maxMessageIdOfSession:" + sessionId;
-            Long messageId = redisTemplate.execute(incrementLuaScript, Collections.singletonList(queryKey), EXPIRE_TIME.toString());
-            if (messageId == null || messageId < 0) {
-                // 双锁检查
-                RedisDistributedLock lock = new RedisDistributedLock(redisTemplate, "sessionId:" + sessionId);
-                try {
-                    boolean hasLocked = lock.tryLock(60, TimeUnit.SECONDS);
-                    if (hasLocked) {
+            try {
+                log.debug("[MessageHandler]: come [{}]", protocol.getMessageString());
+                int originalLength = protocol.getLength();
+                if (originalLength == 0) throw new RuntimeException("消息长度为0");
+                Long sessionId = protocol.getSessionId();
+                String queryKey = "maxMessageIdOfSession:" + sessionId;
+                Long messageId = redisTemplate.execute(incrementLuaScript, Collections.singletonList(queryKey), EXPIRE_TIME.toString());
+                if (messageId == null || messageId < 0) {
+                    // 双锁检查，获取消息ID
+                    RedisDistributedLock lock = new RedisDistributedLock(redisTemplate, "sessionId:" + sessionId);
+                    try {
+                        boolean hasLocked = lock.tryLock(60, TimeUnit.SECONDS);
+                        if (!hasLocked) throw new RuntimeException("锁等待超时");
                         messageId = redisTemplate.execute(incrementLuaScript, Collections.singletonList(queryKey), EXPIRE_TIME.toString());
                         if (messageId == null || messageId < 0) {
-                            // 该函数在数据不存在时，返回0
-                            messageId = chatMessageMapper.selectMaxMessageIdInSession(sessionId);
+                            messageId = chatMessageMapper.selectMaxMessageIdInSession(sessionId); // 该函数在数据不存在时，返回0
                             messageId = messageId + 1;
                             redisTemplate.opsForValue().setIfAbsent(queryKey, messageId.toString(), EXPIRE_TIME, TimeUnit.SECONDS);
                         }
-                    } else {
-                        // 业务等待超时，服务器异常
-                        log.debug("[sendMessageToQueue]: 锁等待超时");
-                        protocol.setContent("锁等待超时");
+                    } finally {
+                        lock.unlock();
+                    }
+                }
+                protocol.setMessageId(messageId);
+                protocol.setTimeStamp(System.currentTimeMillis());
+                ChatMessage chatMessage = Protocol2ChatMessage(protocol);
+                kafkaTemplate.send(MessageConsumer.TOPIC, sessionId.toString(), chatMessage).whenComplete((re, ex) -> {
+                    if (ex != null) {
+                        // todo: 填充空消息
+                        // 将错误写入日志，方便恢复数据
+                        log.info("[消息已丢失, 需填充空消息]: sessionId: {}, messageId: {}", chatMessage.getSessionId(), chatMessage.getMessageId());
+                        protocol.setContent("消息队列异常");
                         protocol.setType(Protocol.ORDER_ACK + Protocol.CONTENT_FAILED);
-                        ctx.writeAndFlush(protocol.toBuffer(ctx.alloc().buffer()));
+                        ctx.writeAndFlush(protocol);
+                    } else {
+                        // 向发送者返回 ACK 成功应答
+                        protocol.setContent("");
+                        protocol.setType(Protocol.ORDER_ACK, chatMessage.getType());
+                        ctx.writeAndFlush(protocol);
                     }
-                } finally {
-                    lock.unlock();
-                }
-
+                });
+            } catch (Exception e){
+                // 业务等待超时，服务器异常
+                log.debug("[sendMessageToQueue]: 锁等待超时");
+                protocol.setContent(e.getMessage());
+                protocol.setType(Protocol.ORDER_ACK + Protocol.CONTENT_FAILED);
+                ctx.writeAndFlush(protocol.toBuffer(ctx.alloc().buffer()));
             }
-            protocol.setMessageId(messageId);
-            protocol.setTimeStamp(System.currentTimeMillis());
-            ChatMessage chatMessage = Protocol2ChatMessage(protocol);
-            kafkaTemplate.send(MessageConsumer.TOPIC, sessionId.toString(), chatMessage).whenComplete((re, ex) -> {
-                if (ex != null) {
-                    // 将错误写入日志，方便恢复数据
-                    try {
-                        log.info("[消息丢失记录]: {}", objectMapper.writeValueAsString(chatMessage));
-                    } catch (JsonProcessingException e) {
-                        // 兜底存储
-                        log.info("[消息丢失记录:兜底]: {},{},{},{},{}",
-                                chatMessage.getSessionId(),
-                                chatMessage.getMessageId(),
-                                chatMessage.getFromId(),
-                                chatMessage.getType(),
-                                chatMessage.getContent());
-                    }
-                    protocol.setContent("消息队列异常");
-                    protocol.setType(Protocol.ORDER_ACK + Protocol.CONTENT_FAILED);
-                    ctx.writeAndFlush(protocol.toBuffer(ctx.alloc().buffer()));
-                }
-            });
 
         } else {
             // 不是消息，往下放行

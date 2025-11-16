@@ -1,6 +1,6 @@
 package com.zcj.servicenetty.handler;
 
-import com.zcj.servicenetty.entity.Protocol;
+import com.zcj.common.entity.Protocol;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;

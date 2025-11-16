@@ -1,4 +1,4 @@
-package com.zcj.servicenetty.server;
+package com.zcj.servicenetty.service;
 
 import io.netty.channel.Channel;
 import io.netty.channel.group.ChannelGroup;
@@ -63,9 +63,9 @@ public class ChannelManager {
      * 根据Channel解除绑定（连接关闭时调用）
      * @param channel 连接通道
      */
-    public void unbind(Channel channel) {
+    public Long unbind(Channel channel) {
         if (channel == null) {
-            return;
+            return null;
         }
         // 1. 从Channel属性中获取用户ID（无需遍历映射）
         Long userId = channel.attr(USER_ID_ATTR).get();
@@ -77,6 +77,7 @@ public class ChannelManager {
         }
         // 4. 从全局管理组中移除
         allChannels.remove(channel);
+        return userId;
     }
 
     /**

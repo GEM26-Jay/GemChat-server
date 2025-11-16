@@ -1,4 +1,4 @@
-package com.zcj.servicenetty.server;
+package com.zcj.servicenetty.service;
 
 import com.zcj.servicenetty.handler.*;
 import io.netty.channel.ChannelInitializer;
@@ -24,9 +24,9 @@ public class NettyServerChannelInitializer extends ChannelInitializer<SocketChan
     protected void initChannel(SocketChannel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast(new ProtocolFrameDecoder());
+        pipeline.addLast(protocolEncoder);
         pipeline.addLast(authHandlerProvider.getObject());
         pipeline.addLast(new IdempotentHandler());
         pipeline.addLast(messageHandler);
-        pipeline.addLast(protocolEncoder);
     }
 }

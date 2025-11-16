@@ -3,7 +3,7 @@
 <mapper namespace="com.zcj.servicenetty.mapper.ChatMessageMapper">
 
     <insert id="batchInsert">
-        insert into chat_message (
+        insert ignore into chat_message (
         session_id,
         message_id,
         type,

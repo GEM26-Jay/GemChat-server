@@ -64,4 +64,15 @@ public class ChatMessage {
     @Schema(description = "消息发送者标识")
     private Long identityId;
 
+    public Protocol toProtocol() {
+        Protocol protocol = new Protocol();
+        protocol.setSessionId(sessionId);
+        protocol.setMessageId(messageId);
+        protocol.setFromId(fromId);
+        protocol.setIdentityId(identityId);
+        protocol.setType(Protocol.ORDER_MESSAGE, type);
+        protocol.setTimeStamp(updatedAt);
+        protocol.setContent(content);
+        return protocol;
+    }
 }

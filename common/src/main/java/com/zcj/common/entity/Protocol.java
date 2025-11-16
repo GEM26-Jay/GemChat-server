@@ -1,4 +1,4 @@
-package com.zcj.servicenetty.entity;
+package com.zcj.common.entity;
 
 import io.netty.buffer.ByteBuf;
 import lombok.Data;

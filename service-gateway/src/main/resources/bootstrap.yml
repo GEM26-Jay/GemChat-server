@@ -18,3 +18,9 @@ spring:
       discovery:
         namespace: chat
         group: dev
+
+logging:
+  level:
+    com.your.package.UserIdHashLoadBalancer: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG
+    org.springframework.cloud.client: DEBUG

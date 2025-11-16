@@ -14,8 +14,16 @@ public class CaffeineConfig {
     @Bean()
     public Cache<String, Set<Long>> session_member_cache() {
         return Caffeine.newBuilder()
-                .maximumSize(100000)                     // 最大缓存条数
-                .expireAfterWrite(2, TimeUnit.MINUTES) // 写入后10分钟过期
+                .maximumSize(1000000)                     // 最大缓存条数
+                .expireAfterWrite(5, TimeUnit.MINUTES) // 写入后10分钟过期
+                .build();
+    }
+
+    @Bean()
+    public Cache<Long, String> user_route_cache() {
+        return Caffeine.newBuilder()
+                .maximumSize(1000000)                     // 最大缓存条数
+                .expireAfterWrite(5, TimeUnit.MINUTES) // 写入后10分钟过期
                 .build();
     }
 }

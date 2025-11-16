@@ -1,8 +1,8 @@
 package com.zcj.servicenetty.bootstrap;
 
 import com.zcj.servicenetty.config.NettyProperties;
-import com.zcj.servicenetty.server.ChannelManager;
-import com.zcj.servicenetty.server.NettyServerChannelInitializer;
+import com.zcj.servicenetty.service.ChannelManager;
+import com.zcj.servicenetty.service.NettyServerChannelInitializer;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
@@ -10,7 +10,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Slf4j
